@@ -1,0 +1,1118 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Гроссбух — учёт доходов и расходов</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1f4b3f">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Гроссбух">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<style>
+  :root{
+    --paper:#ece3d2;
+    --paper-deep:#e2d8c2;
+    --line:#c8bb9c;
+    --ink:#2b241a;
+    --ink-soft:#6b6152;
+    --green:#1f4b3f;
+    --green-soft:#356355;
+    --red:#9c2b1f;
+    --red-soft:#b8483a;
+    --gold:#a9803f;
+    --card:#f5efe1;
+    --shadow: 0 1px 0 rgba(43,36,26,.06), 0 8px 20px -12px rgba(43,36,26,.35);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:
+      repeating-linear-gradient(180deg, transparent 0 27px, rgba(200,187,156,.35) 27px 28px),
+      var(--paper);
+    color:var(--ink);
+    font-family:'Inter',sans-serif;
+    min-height:100vh;
+  }
+  ::selection{background:var(--gold);color:#fff;}
+  .wrap{max-width:1100px;margin:0 auto;padding:28px 20px 80px;}
+
+  header.top{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:22px;flex-wrap:wrap;border-bottom:2px solid var(--ink);padding-bottom:14px;}
+  .brand{display:flex;align-items:center;gap:14px;}
+  .brand .stamp{
+    width:52px;height:52px;border-radius:50%;border:2.5px solid var(--red);
+    display:flex;align-items:center;justify-content:center;
+    transform:rotate(-8deg);color:var(--red);font-family:'Fraunces',serif;font-weight:700;font-size:22px;
+    opacity:.85;
+  }
+  .brand h1{font-family:'Fraunces',serif;font-weight:700;font-size:30px;margin:0;letter-spacing:.2px;}
+  .brand .sub{font-size:12.5px;color:var(--ink-soft);margin-top:2px;letter-spacing:.3px;}
+  .balance-mini{text-align:right;}
+  .balance-mini .label{font-size:11px;text-transform:uppercase;letter-spacing:1.2px;color:var(--ink-soft);}
+  .balance-mini .val{font-family:'JetBrains Mono',monospace;font-size:26px;font-weight:700;}
+
+  nav.tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:24px;}
+  nav.tabs button{
+    font-family:'Inter',sans-serif;font-size:13.5px;font-weight:600;
+    background:none;border:1.5px solid var(--ink);color:var(--ink);
+    padding:9px 16px;border-radius:3px;cursor:pointer;transition:.15s;
+  }
+  nav.tabs button.active{background:var(--ink);color:var(--paper);}
+  nav.tabs button:hover:not(.active){background:rgba(43,36,26,.08);}
+
+  section{display:none;}
+  section.active{display:block;animation:fade .25s ease;}
+  @keyframes fade{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:none;}}
+
+  .card{background:var(--card);border:1px solid var(--line);border-radius:6px;padding:20px;box-shadow:var(--shadow);}
+  .card + .card{margin-top:16px;}
+  h2.section-title{font-family:'Fraunces',serif;font-size:20px;margin:0 0 14px;}
+  h3{font-family:'Fraunces',serif;font-size:16px;margin:0 0 10px;}
+
+  .period-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:18px;}
+  .period-switch{display:flex;border:1.5px solid var(--ink);border-radius:3px;overflow:hidden;}
+  .period-switch button{background:none;border:none;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer;color:var(--ink);border-right:1.5px solid var(--ink);}
+  .period-switch button:last-child{border-right:none;}
+  .period-switch button.active{background:var(--green);color:#fff;}
+  .nav-arrow{background:none;border:1.5px solid var(--ink);border-radius:3px;width:34px;height:34px;cursor:pointer;font-size:16px;line-height:1;}
+  .nav-arrow:hover{background:rgba(43,36,26,.08);}
+  .period-label{font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:500;color:var(--ink-soft);}
+
+  .summary-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:18px;}
+  .sum-card{background:var(--card);border:1px solid var(--line);border-radius:6px;padding:16px;box-shadow:var(--shadow);}
+  .sum-card .label{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--ink-soft);margin-bottom:6px;}
+  .sum-card .num{font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:700;}
+  .sum-card.income .num{color:var(--green);}
+  .sum-card.expense .num{color:var(--red);}
+  .sum-card.balance .num{color:var(--ink);}
+
+  .dash-grid{display:grid;grid-template-columns:1.4fr 1fr;gap:16px;}
+  @media (max-width:800px){.dash-grid{grid-template-columns:1fr;} .summary-grid{grid-template-columns:1fr;}}
+
+  svg text{font-family:'JetBrains Mono',monospace;}
+  .bar-tooltip-label{font-size:11px;fill:var(--ink-soft);}
+
+  .tape{
+    background:#faf6ec;border:1px solid var(--line);
+    padding:14px 16px 22px;
+    position:relative;
+    clip-path: polygon(0 0,100% 0,100% calc(100% - 8px),95% 100%,90% calc(100% - 8px),85% 100%,80% calc(100% - 8px),75% 100%,70% calc(100% - 8px),65% 100%,60% calc(100% - 8px),55% 100%,50% calc(100% - 8px),45% 100%,40% calc(100% - 8px),35% 100%,30% calc(100% - 8px),25% 100%,20% calc(100% - 8px),15% 100%,10% calc(100% - 8px),5% 100%,0 calc(100% - 8px));
+    max-height:420px;overflow-y:auto;
+  }
+  .tape-row{display:flex;justify-content:space-between;gap:8px;font-family:'JetBrains Mono',monospace;font-size:12.5px;padding:6px 0;border-bottom:1px dashed var(--line);}
+  .tape-row .d{color:var(--ink-soft);white-space:nowrap;}
+  .tape-row .desc{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0 8px;}
+  .tape-row .a.income{color:var(--green);}
+  .tape-row .a.expense{color:var(--red);}
+  .tape-empty{color:var(--ink-soft);font-size:13px;padding:20px 0;text-align:center;}
+
+  .dropzone{
+    border:2px dashed var(--line);border-radius:6px;padding:32px 20px;text-align:center;cursor:pointer;
+    transition:.15s; background:rgba(255,255,255,.25);
+  }
+  .dropzone:hover, .dropzone.drag{border-color:var(--green);background:rgba(31,75,63,.06);}
+  .dropzone input{display:none;}
+  .dropzone .icon{font-size:30px;margin-bottom:8px;}
+  .dropzone p{margin:2px 0;font-size:13.5px;color:var(--ink-soft);}
+  .dropzone strong{color:var(--ink);}
+
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:var(--ink-soft);padding:6px 8px;border-bottom:2px solid var(--ink);}
+  td{padding:7px 8px;border-bottom:1px solid var(--line);vertical-align:middle;}
+  td input[type=text], td input[type=number], td input[type=date], td select{
+    width:100%;font-family:'Inter',sans-serif;font-size:12.5px;padding:5px 6px;border:1px solid var(--line);border-radius:3px;background:#fff;
+  }
+  td input[type=number]{font-family:'JetBrains Mono',monospace;}
+  .type-pill{border:none;border-radius:12px;padding:4px 10px;font-size:11.5px;font-weight:600;cursor:pointer;}
+  .type-pill.income{background:rgba(31,75,63,.15);color:var(--green);}
+  .type-pill.expense{background:rgba(156,43,31,.13);color:var(--red);}
+  .row-del{background:none;border:none;color:var(--red-soft);cursor:pointer;font-size:15px;}
+
+  .btn{font-family:'Inter',sans-serif;font-weight:600;font-size:13.5px;background:var(--green);color:#fff;border:none;padding:10px 18px;border-radius:4px;cursor:pointer;}
+  .btn:hover{background:var(--green-soft);}
+  .btn.secondary{background:none;border:1.5px solid var(--ink);color:var(--ink);}
+  .btn.secondary:hover{background:rgba(43,36,26,.07);}
+  .btn:disabled{opacity:.4;cursor:not-allowed;}
+  .actions-row{display:flex;justify-content:space-between;align-items:center;margin-top:14px;flex-wrap:wrap;gap:10px;}
+
+  .toast{
+    position:fixed;bottom:22px;left:50%;transform:translateX(-50%);
+    background:var(--ink);color:var(--paper);padding:11px 20px;border-radius:5px;font-size:13.5px;
+    box-shadow:0 8px 24px rgba(0,0,0,.25);opacity:0;pointer-events:none;transition:.25s;z-index:50;
+  }
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(-6px);}
+
+  .photo-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px;margin-top:16px;}
+  .photo-card{border:1px solid var(--line);border-radius:6px;overflow:hidden;background:#fff;}
+  .photo-card img{width:100%;height:120px;object-fit:cover;display:block;background:#ddd;}
+  .photo-card .pf{padding:10px;display:flex;flex-direction:column;gap:6px;}
+  .photo-card input, .photo-card select{font-family:'Inter',sans-serif;font-size:12.5px;padding:6px;border:1px solid var(--line);border-radius:3px;}
+  .photo-card .pf-row{display:flex;gap:6px;}
+  .photo-card .remove{align-self:flex-end;background:none;border:none;color:var(--red);cursor:pointer;font-size:12px;}
+
+  .filter-row{display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;}
+  .filter-row input, .filter-row select{font-family:'Inter',sans-serif;font-size:13px;padding:8px 10px;border:1px solid var(--line);border-radius:4px;background:#fff;}
+  .filter-row input[type=text]{flex:1;min-width:160px;}
+
+  .cat-list{display:flex;flex-direction:column;gap:10px;}
+  .cat-item{border:1px solid var(--line);border-radius:5px;padding:12px;background:#fff;}
+  .cat-head{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+  .cat-dot{width:12px;height:12px;border-radius:50%;flex-shrink:0;}
+  .cat-name{font-weight:700;font-size:14px;flex:1;}
+  .kw-tags{display:flex;flex-wrap:wrap;gap:6px;}
+  .kw-tag{background:var(--paper-deep);border-radius:10px;padding:3px 9px;font-size:11.5px;display:flex;align-items:center;gap:5px;}
+  .kw-tag button{background:none;border:none;cursor:pointer;color:var(--ink-soft);font-size:11px;}
+  .add-kw{display:flex;gap:6px;margin-top:8px;}
+  .add-kw input{flex:1;font-size:12.5px;padding:5px 8px;border:1px solid var(--line);border-radius:3px;}
+  .add-kw button{font-size:12px;padding:5px 10px;border-radius:3px;border:1px solid var(--ink);background:none;cursor:pointer;}
+
+  .empty-state{text-align:center;padding:40px 20px;color:var(--ink-soft);}
+  .empty-state .big{font-size:34px;margin-bottom:8px;}
+
+  .legend{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px;}
+  .legend-item{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--ink-soft);}
+  .legend-dot{width:10px;height:10px;border-radius:2px;}
+
+  footer.foot{margin-top:40px;text-align:center;font-size:11.5px;color:var(--ink-soft);}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <div class="brand">
+      <div class="stamp">₸</div>
+      <div>
+        <h1>Гроссбух</h1>
+        <div class="sub">учёт доходов и расходов — выписки, чеки, накладные</div>
+      </div>
+    </div>
+    <div class="balance-mini">
+      <div class="label">Общий баланс</div>
+      <div class="val" id="totalBalance">0 ₸</div>
+    </div>
+  </header>
+
+  <nav class="tabs">
+    <button data-tab="dash" class="active">Обзор</button>
+    <button data-tab="pdf">Загрузить выписку (PDF)</button>
+    <button data-tab="photo">Чек / накладная (фото)</button>
+    <button data-tab="list">Транзакции</button>
+    <button data-tab="cats">Категории</button>
+    <button data-tab="sync">Синхронизация</button>
+  </nav>
+
+  <!-- DASHBOARD -->
+  <section id="tab-dash" class="active">
+    <div class="period-bar">
+      <div class="period-switch" id="periodSwitch">
+        <button data-p="day" class="active">День</button>
+        <button data-p="week">Неделя</button>
+        <button data-p="year">Год</button>
+      </div>
+      <button class="nav-arrow" id="prevPeriod">‹</button>
+      <span class="period-label" id="periodLabel">—</span>
+      <button class="nav-arrow" id="nextPeriod">›</button>
+      <button class="btn secondary" id="todayBtn" style="margin-left:auto;">Сегодня</button>
+    </div>
+
+    <div class="summary-grid">
+      <div class="sum-card income"><div class="label">Доход</div><div class="num" id="sumIncome">0 ₸</div></div>
+      <div class="sum-card expense"><div class="label">Расход</div><div class="num" id="sumExpense">0 ₸</div></div>
+      <div class="sum-card balance"><div class="label">Итог периода</div><div class="num" id="sumBalance">0 ₸</div></div>
+    </div>
+
+    <div class="dash-grid">
+      <div class="card">
+        <h3 id="chartTitle">Движение по дням</h3>
+        <div id="barChart"></div>
+      </div>
+      <div class="card">
+        <h3>По категориям (расход)</h3>
+        <div id="donutChart"></div>
+        <div class="legend" id="donutLegend"></div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:16px;">
+      <h3>Лента операций периода</h3>
+      <div class="tape" id="tape"></div>
+    </div>
+  </section>
+
+  <!-- PDF UPLOAD -->
+  <section id="tab-pdf">
+    <div class="card">
+      <h2 class="section-title">Разбор банковской выписки (PDF)</h2>
+      <p style="font-size:13px;color:var(--ink-soft);margin-top:-6px;">Загрузите PDF за день, неделю или любой период — приложение попробует найти в тексте даты, суммы и назначения операций. Перед сохранением можно поправить каждую строку.</p>
+      <div class="dropzone" id="pdfDrop">
+        <div class="icon">📄</div>
+        <p><strong>Нажмите или перетащите PDF сюда</strong></p>
+        <p>Выписка из банка (Kaspi, Halyk, Jusan и т.д.)</p>
+        <input type="file" id="pdfInput" accept="application/pdf" multiple>
+      </div>
+      <div id="pdfStatus" style="margin-top:10px;font-size:13px;color:var(--ink-soft);"></div>
+    </div>
+
+    <div class="card" id="pdfReviewCard" style="display:none;">
+      <h3>Проверьте разобранные операции (<span id="pdfCount">0</span>)</h3>
+      <div style="overflow-x:auto;">
+        <table id="pdfTable">
+          <thead><tr>
+            <th style="width:26px;"><input type="checkbox" id="pdfSelAll" checked></th>
+            <th style="width:110px;">Дата</th>
+            <th>Описание</th>
+            <th style="width:110px;">Сумма</th>
+            <th style="width:90px;">Тип</th>
+            <th style="width:150px;">Категория</th>
+            <th style="width:26px;"></th>
+          </tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div class="actions-row">
+        <span style="font-size:12px;color:var(--ink-soft);">Разбор автоматический — проверьте суммы и типы перед сохранением.</span>
+        <div style="display:flex;gap:8px;">
+          <button class="btn secondary" id="pdfCancel">Отменить</button>
+          <button class="btn" id="pdfSave">Сохранить выбранные</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PHOTO UPLOAD -->
+  <section id="tab-photo">
+    <div class="card">
+      <h2 class="section-title">Чек, накладная, расходник — фото</h2>
+      <p style="font-size:13px;color:var(--ink-soft);margin-top:-6px;">Сфотографируйте или загрузите документ. Сумму и категорию нужно указать вручную — фото сохранится как подтверждение.</p>
+      <div class="dropzone" id="photoDrop">
+        <div class="icon">🧾</div>
+        <p><strong>Нажмите, чтобы выбрать фото</strong></p>
+        <p>Можно несколько файлов сразу</p>
+        <input type="file" id="photoInput" accept="image/*" capture="environment" multiple>
+      </div>
+    </div>
+    <div class="photo-grid" id="photoGrid"></div>
+    <div class="actions-row" id="photoActions" style="display:none;">
+      <span style="font-size:12px;color:var(--ink-soft);">Заполните сумму для каждого документа.</span>
+      <button class="btn" id="photoSave">Сохранить все</button>
+    </div>
+  </section>
+
+  <!-- TRANSACTIONS LIST -->
+  <section id="tab-list">
+    <div class="card">
+      <h2 class="section-title">Все операции</h2>
+      <div class="filter-row">
+        <input type="text" id="searchBox" placeholder="Поиск по описанию…">
+        <select id="filterType">
+          <option value="all">Все типы</option>
+          <option value="income">Доход</option>
+          <option value="expense">Расход</option>
+        </select>
+        <select id="filterCat"><option value="all">Все категории</option></select>
+      </div>
+      <div style="overflow-x:auto;">
+        <table id="listTable">
+          <thead><tr>
+            <th style="width:100px;">Дата</th>
+            <th>Описание</th>
+            <th style="width:100px;">Сумма</th>
+            <th style="width:150px;">Категория</th>
+            <th style="width:70px;">Фото</th>
+            <th style="width:30px;"></th>
+          </tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div id="listEmpty" class="empty-state" style="display:none;">
+        <div class="big">🗒️</div>
+        <div>Пока нет операций. Загрузите выписку PDF или фото чека.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CATEGORIES -->
+  <section id="tab-cats">
+    <div class="card">
+      <h2 class="section-title">Категории и ключевые слова</h2>
+      <p style="font-size:13px;color:var(--ink-soft);margin-top:-6px;">Приложение сопоставляет описание операции с этими словами. Добавляйте свои — так автоматический разбор станет точнее.</p>
+      <div class="cat-list" id="catList"></div>
+      <div style="margin-top:14px;display:flex;gap:8px;">
+        <input type="text" id="newCatName" placeholder="Новая категория…" style="flex:1;padding:8px;border:1px solid var(--line);border-radius:4px;">
+        <button class="btn secondary" id="addCatBtn">Добавить категорию</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- SYNC WITH GOOGLE SHEETS -->
+  <section id="tab-sync">
+    <div class="card">
+      <h2 class="section-title">Синхронизация с Google Таблицей</h2>
+      <p style="font-size:13px;color:var(--ink-soft);margin-top:-6px;">
+        Работает через Google Apps Script, установленный в твою таблицу (см. файл <code>google-apps-script/Code.gs</code> в проекте).
+        Вставь сюда URL веб-приложения (заканчивается на <code>/exec</code>) и пароль, который ты указал в скрипте.
+      </p>
+      <div style="display:grid;gap:10px;max-width:520px;">
+        <label style="font-size:12px;color:var(--ink-soft);">URL веб-приложения (Apps Script)
+          <input type="text" id="syncUrl" placeholder="https://script.google.com/macros/s/…/exec" style="width:100%;padding:9px;border:1px solid var(--line);border-radius:4px;margin-top:4px;">
+        </label>
+        <label style="font-size:12px;color:var(--ink-soft);">Пароль
+          <input type="password" id="syncPass" placeholder="Пароль из Code.gs" style="width:100%;padding:9px;border:1px solid var(--line);border-radius:4px;margin-top:4px;">
+        </label>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn secondary" id="syncSaveBtn">Сохранить настройки</button>
+          <button class="btn" id="syncPushBtn">⬆ Отправить в таблицу</button>
+          <button class="btn secondary" id="syncPullBtn">⬇ Загрузить из таблицы</button>
+        </div>
+        <div id="syncStatus" style="font-size:12.5px;color:var(--ink-soft);"></div>
+      </div>
+    </div>
+  </section>
+
+  <footer class="foot">
+    <div>Данные хранятся локально/в вашем аккаунте Claude и не передаются на сторонние сервисы, кроме адреса синхронизации, который вы указали сами.</div>
+    <div style="margin-top:8px;font-family:'Fraunces',serif;font-size:13px;color:var(--ink);">Гроссбух · собрано для Гани Братан</div>
+  </footer>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============ STORAGE (works both inside Claude artifact & as local file) ============ */
+const hasCloudStorage = typeof window.storage !== 'undefined' && window.storage;
+const LS_KEY = 'ledger_finance_data_v1';
+
+const DEFAULT_CATEGORIES = [
+  {name:'Доход', color:'#1f4b3f', type:'income', keywords:['зарплата','аванс','перевод от','пополнение','кэшбек','cashback','возврат','стипенд','премия']},
+  {name:'Продукты', color:'#6b4226', type:'expense', keywords:['magnum','small','galmart','мерей','prodtov','oqmet','азбука вкуса','arbuz','food city','дастархан']},
+  {name:'Кафе и рестораны', color:'#9c2b1f', type:'expense', keywords:['kfc','mcdonald','burger','coffee','кофе','cafe','кафе','ресторан','sushi','plov','pizza','starbucks','cofix']},
+  {name:'Транспорт', color:'#4a6670', type:'expense', keywords:['taxi','такси','yandex','indriver','bolt','автобус','азс','бензин','gsm','parking','паркинг','onay']},
+  {name:'Коммунальные и связь', color:'#7a6a3c', type:'expense', keywords:['kcell','beeline','tele2','activ','altel','jusan pay','интернет','коммунал','жкх','электро','газ','вода']},
+  {name:'Здоровье', color:'#8e5572', type:'expense', keywords:['аптека','pharmacy','clinic','клиника','dentist','europharm']},
+  {name:'Одежда и обувь', color:'#556b2f', type:'expense', keywords:['lc waikiki','zara','h&m','sport','обувь','shoes','mark formelle']},
+  {name:'Развлечения', color:'#a9803f', type:'expense', keywords:['kinopark','cinema','кино','chocofamily','game','playstation','steam','netflix','spotify']},
+  {name:'Переводы и снятия', color:'#5b5346', type:'expense', keywords:['перевод','снятие','обнал','atm','банкомат']},
+  {name:'Прочее', color:'#8a8272', type:'expense', keywords:[]}
+];
+
+let state = { transactions: [], categories: JSON.parse(JSON.stringify(DEFAULT_CATEGORIES)) };
+
+async function loadState(){
+  try{
+    if(hasCloudStorage){
+      const r = await window.storage.get('finance_data', false);
+      if(r && r.value) state = JSON.parse(r.value);
+    } else {
+      const raw = localStorage.getItem(LS_KEY);
+      if(raw) state = JSON.parse(raw);
+    }
+  }catch(e){ /* no existing data yet, keep defaults */ }
+  if(!state.categories || !state.categories.length) state.categories = JSON.parse(JSON.stringify(DEFAULT_CATEGORIES));
+  if(!state.transactions) state.transactions = [];
+}
+async function saveState(){
+  try{
+    if(hasCloudStorage){ await window.storage.set('finance_data', JSON.stringify(state), false); }
+    else { localStorage.setItem(LS_KEY, JSON.stringify(state)); }
+  }catch(e){ console.error('storage save failed', e); }
+}
+
+function toast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(toast._h);
+  toast._h = setTimeout(()=>t.classList.remove('show'), 2600);
+}
+function fmt(n){ return Math.round(n).toLocaleString('ru-RU') + ' ₸'; }
+function uid(){ return 'tx'+Date.now()+Math.random().toString(36).slice(2,8); }
+
+/* ============ CATEGORIZATION ============ */
+function categorize(desc, forceType){
+  const d = (desc||'').toLowerCase();
+  if(forceType === 'income'){
+    const incomeCat = state.categories.find(c=>c.type==='income');
+    return incomeCat ? incomeCat.name : 'Прочее';
+  }
+  for(const c of state.categories){
+    if(c.type==='income') continue;
+    for(const kw of c.keywords){
+      if(kw && d.includes(kw.toLowerCase())) return c.name;
+    }
+  }
+  return 'Прочее';
+}
+function guessType(line){
+  const d = line.toLowerCase();
+  const incomeCat = state.categories.find(c=>c.type==='income');
+  if(incomeCat){
+    for(const kw of incomeCat.keywords){ if(kw && d.includes(kw.toLowerCase())) return 'income'; }
+  }
+  return 'expense';
+}
+function catColor(name){
+  const c = state.categories.find(x=>x.name===name);
+  return c ? c.color : '#8a8272';
+}
+
+/* ============ TABS ============ */
+document.querySelectorAll('nav.tabs button').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('nav.tabs button').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('section').forEach(s=>s.classList.remove('active'));
+    document.getElementById('tab-'+btn.dataset.tab).classList.add('active');
+    if(btn.dataset.tab==='list') renderList();
+    if(btn.dataset.tab==='cats') renderCats();
+    if(btn.dataset.tab==='dash') renderDash();
+  });
+});
+
+/* ============ PDF PARSING ============ */
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+const pdfDrop = document.getElementById('pdfDrop');
+const pdfInput = document.getElementById('pdfInput');
+pdfDrop.addEventListener('click', ()=>pdfInput.click());
+['dragover','dragleave','drop'].forEach(ev=>{
+  pdfDrop.addEventListener(ev, e=>{
+    e.preventDefault();
+    if(ev==='dragover') pdfDrop.classList.add('drag');
+    else pdfDrop.classList.remove('drag');
+  });
+});
+pdfDrop.addEventListener('drop', e=>{
+  if(e.dataTransfer.files.length) handlePdfFiles(e.dataTransfer.files);
+});
+pdfInput.addEventListener('change', e=>{ if(e.target.files.length) handlePdfFiles(e.target.files); });
+
+let pdfCandidates = [];
+
+async function handlePdfFiles(fileList){
+  const statusEl = document.getElementById('pdfStatus');
+  statusEl.textContent = 'Разбираю PDF…';
+  pdfCandidates = [];
+  for(const file of fileList){
+    try{
+      const buf = await file.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({data:buf}).promise;
+      for(let p=1;p<=pdf.numPages;p++){
+        const page = await pdf.getPage(p);
+        const content = await page.getTextContent();
+        const lines = groupIntoLines(content.items);
+        for(const line of lines){
+          const tx = parseLine(line);
+          if(tx) pdfCandidates.push(tx);
+        }
+      }
+    }catch(err){
+      console.error(err);
+      statusEl.textContent = 'Не удалось прочитать файл «'+file.name+'». Возможно, это скан-картинка без текстового слоя.';
+    }
+  }
+  if(pdfCandidates.length===0){
+    statusEl.textContent = 'Операции не найдены. Проверьте, что PDF содержит текст (не скан), либо добавьте операции вручную через вкладку «Транзакции».';
+    document.getElementById('pdfReviewCard').style.display='none';
+    return;
+  }
+  statusEl.textContent = 'Готово: найдено '+pdfCandidates.length+' возможных операций. Проверьте перед сохранением.';
+  renderPdfReview();
+}
+
+function groupIntoLines(items){
+  const rows = {};
+  items.forEach(it=>{
+    const y = Math.round(it.transform[5]);
+    if(!rows[y]) rows[y] = [];
+    rows[y].push(it);
+  });
+  const ys = Object.keys(rows).map(Number).sort((a,b)=>b-a);
+  return ys.map(y => rows[y].sort((a,b)=>a.transform[4]-b.transform[4]).map(it=>it.str).join(' ').replace(/\s{2,}/g,' ').trim())
+            .filter(l=>l.length>3);
+}
+
+function parseLine(line){
+  const dateMatch = line.match(/\b(\d{2}[.\/]\d{2}[.\/]\d{2,4})\b/);
+  if(!dateMatch) return null;
+  const amountRe = /-?\d{1,3}(?:[\s\u00A0]\d{3})*(?:[.,]\d{1,2})?/g;
+  const rawAmounts = [...line.matchAll(amountRe)].map(m=>m[0]).filter(a=>{
+    const digits = a.replace(/[^\d]/g,'');
+    return digits.length>=2 && a !== dateMatch[1];
+  });
+  if(rawAmounts.length===0) return null;
+  const amountStr = rawAmounts[rawAmounts.length-1];
+  const isNegative = amountStr.trim().startsWith('-');
+  let amountNum = parseFloat(amountStr.replace(/[\s\u00A0]/g,'').replace(',','.'));
+  amountNum = Math.abs(amountNum);
+  if(!isFinite(amountNum) || amountNum<=0) return null;
+
+  let type = isNegative ? 'expense' : guessType(line);
+  let description = line.replace(dateMatch[1],'').replace(amountStr,'').trim().replace(/\s{2,}/g,' ');
+  description = description.replace(/^[-:|,\s]+|[-:|,\s]+$/g,'');
+  if(!description) description = 'Операция по выписке';
+
+  return {
+    id: uid(),
+    date: normalizeDate(dateMatch[1]),
+    description,
+    amount: amountNum,
+    type,
+    category: categorize(description, type),
+    source: 'pdf'
+  };
+}
+function normalizeDate(str){
+  const sep = str.includes('/') ? '/' : '.';
+  let [d,m,y] = str.split(sep);
+  if(y.length===2) y = (parseInt(y,10)<50?'20':'19')+y;
+  return y.padStart(4,'0')+'-'+m.padStart(2,'0')+'-'+d.padStart(2,'0');
+}
+
+function renderPdfReview(){
+  const card = document.getElementById('pdfReviewCard');
+  card.style.display='block';
+  document.getElementById('pdfCount').textContent = pdfCandidates.length;
+  const tbody = document.querySelector('#pdfTable tbody');
+  tbody.innerHTML='';
+  pdfCandidates.forEach((tx,i)=>{
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><input type="checkbox" class="pdf-sel" checked data-i="${i}"></td>
+      <td><input type="date" value="${tx.date}" data-i="${i}" data-f="date"></td>
+      <td><input type="text" value="${escapeAttr(tx.description)}" data-i="${i}" data-f="description"></td>
+      <td><input type="number" value="${tx.amount}" step="0.01" data-i="${i}" data-f="amount"></td>
+      <td><button class="type-pill ${tx.type}" data-i="${i}" data-f="type">${tx.type==='income'?'Доход':'Расход'}</button></td>
+      <td>${catSelect(tx.category, i)}</td>
+      <td><button class="row-del" data-i="${i}">✕</button></td>
+    `;
+    tbody.appendChild(tr);
+  });
+  tbody.querySelectorAll('input[data-f]').forEach(inp=>{
+    inp.addEventListener('input', e=>{
+      const i = +e.target.dataset.i, f = e.target.dataset.f;
+      pdfCandidates[i][f] = f==='amount' ? parseFloat(e.target.value)||0 : e.target.value;
+    });
+  });
+  tbody.querySelectorAll('button.type-pill').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      const i = +b.dataset.i;
+      pdfCandidates[i].type = pdfCandidates[i].type==='income' ? 'expense' : 'income';
+      renderPdfReview();
+    });
+  });
+  tbody.querySelectorAll('select[data-f=category]').forEach(sel=>{
+    sel.addEventListener('change', e=>{
+      pdfCandidates[+e.target.dataset.i].category = e.target.value;
+    });
+  });
+  tbody.querySelectorAll('button.row-del').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      pdfCandidates.splice(+b.dataset.i,1);
+      renderPdfReview();
+    });
+  });
+}
+function catSelect(selected, i){
+  return '<select data-i="'+i+'" data-f="category">' +
+    state.categories.map(c=>`<option value="${escapeAttr(c.name)}" ${c.name===selected?'selected':''}>${escapeHtml(c.name)}</option>`).join('') +
+    '</select>';
+}
+function escapeHtml(s){ return (s||'').replace(/[&<>"]/g, ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch])); }
+function escapeAttr(s){ return escapeHtml(s); }
+
+document.getElementById('pdfSelAll').addEventListener('change', e=>{
+  document.querySelectorAll('.pdf-sel').forEach(cb=>cb.checked = e.target.checked);
+});
+document.getElementById('pdfCancel').addEventListener('click', ()=>{
+  pdfCandidates = [];
+  document.getElementById('pdfReviewCard').style.display='none';
+  document.getElementById('pdfStatus').textContent='';
+  pdfInput.value='';
+});
+document.getElementById('pdfSave').addEventListener('click', async ()=>{
+  const selected = [...document.querySelectorAll('.pdf-sel')].filter(cb=>cb.checked).map(cb=>+cb.dataset.i);
+  const toAdd = selected.map(i=>pdfCandidates[i]);
+  state.transactions.push(...toAdd);
+  await saveState();
+  toast('Сохранено операций: '+toAdd.length);
+  pdfCandidates=[];
+  document.getElementById('pdfReviewCard').style.display='none';
+  document.getElementById('pdfStatus').textContent='';
+  pdfInput.value='';
+  document.querySelector('[data-tab=dash]').click();
+});
+
+/* ============ PHOTO UPLOAD ============ */
+const photoDrop = document.getElementById('photoDrop');
+const photoInput = document.getElementById('photoInput');
+photoDrop.addEventListener('click', ()=>photoInput.click());
+let photoDrafts = [];
+
+photoInput.addEventListener('change', async e=>{
+  const files = [...e.target.files];
+  for(const file of files){
+    const dataUrl = await compressImage(file, 480, 0.72);
+    const name = file.name.replace(/\.[^.]+$/,'');
+    photoDrafts.push({
+      id: uid(), image: dataUrl, description: name,
+      date: new Date().toISOString().slice(0,10),
+      amount: '', type:'expense', category:'Прочее'
+    });
+  }
+  photoInput.value='';
+  renderPhotoDrafts();
+});
+
+function compressImage(file, maxW, quality){
+  return new Promise((resolve)=>{
+    const img = new Image();
+    const reader = new FileReader();
+    reader.onload = ()=>{
+      img.onload = ()=>{
+        const scale = Math.min(1, maxW/img.width);
+        const w = Math.round(img.width*scale), h = Math.round(img.height*scale);
+        const canvas = document.createElement('canvas');
+        canvas.width=w; canvas.height=h;
+        canvas.getContext('2d').drawImage(img,0,0,w,h);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function renderPhotoDrafts(){
+  const grid = document.getElementById('photoGrid');
+  grid.innerHTML='';
+  photoDrafts.forEach((d,i)=>{
+    const div = document.createElement('div');
+    div.className='photo-card';
+    div.innerHTML = `
+      <img src="${d.image}">
+      <div class="pf">
+        <input type="text" value="${escapeAttr(d.description)}" placeholder="Магазин / назначение" data-i="${i}" data-f="description">
+        <div class="pf-row">
+          <input type="date" value="${d.date}" data-i="${i}" data-f="date" style="flex:1;">
+          <input type="number" value="${d.amount}" placeholder="Сумма ₸" data-i="${i}" data-f="amount" style="flex:1;">
+        </div>
+        <div class="pf-row">
+          <button class="type-pill ${d.type}" data-i="${i}" data-f="type" style="flex:1;">${d.type==='income'?'Доход':'Расход'}</button>
+          <select data-i="${i}" data-f="category" style="flex:1;">${state.categories.map(c=>`<option value="${escapeAttr(c.name)}" ${c.name===d.category?'selected':''}>${escapeHtml(c.name)}</option>`).join('')}</select>
+        </div>
+        <button class="remove" data-i="${i}">Удалить ✕</button>
+      </div>
+    `;
+    grid.appendChild(div);
+  });
+  grid.querySelectorAll('input[data-f]').forEach(inp=>{
+    inp.addEventListener('input', e=>{
+      const i=+e.target.dataset.i, f=e.target.dataset.f;
+      photoDrafts[i][f] = f==='amount' ? e.target.value : e.target.value;
+    });
+  });
+  grid.querySelectorAll('select[data-f=category]').forEach(sel=>{
+    sel.addEventListener('change', e=>{ photoDrafts[+e.target.dataset.i].category = e.target.value; });
+  });
+  grid.querySelectorAll('button.type-pill').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      const i=+b.dataset.i;
+      photoDrafts[i].type = photoDrafts[i].type==='income'?'expense':'income';
+      renderPhotoDrafts();
+    });
+  });
+  grid.querySelectorAll('button.remove').forEach(b=>{
+    b.addEventListener('click', ()=>{ photoDrafts.splice(+b.dataset.i,1); renderPhotoDrafts(); });
+  });
+  document.getElementById('photoActions').style.display = photoDrafts.length ? 'flex' : 'none';
+}
+
+document.getElementById('photoSave').addEventListener('click', async ()=>{
+  const valid = photoDrafts.filter(d=>parseFloat(d.amount)>0);
+  if(valid.length < photoDrafts.length){
+    toast('Не у всех документов указана сумма — они пропущены.');
+  }
+  valid.forEach(d=>{
+    state.transactions.push({
+      id:d.id, date:d.date, description:d.description||'Чек', amount:parseFloat(d.amount),
+      type:d.type, category:d.category, source:'photo', image:d.image
+    });
+  });
+  await saveState();
+  toast('Сохранено документов: '+valid.length);
+  photoDrafts=[];
+  renderPhotoDrafts();
+  document.querySelector('[data-tab=dash]').click();
+});
+
+/* ============ TRANSACTIONS LIST ============ */
+function populateFilterCats(){
+  const sel = document.getElementById('filterCat');
+  sel.innerHTML = '<option value="all">Все категории</option>' + state.categories.map(c=>`<option value="${escapeAttr(c.name)}">${escapeHtml(c.name)}</option>`).join('');
+}
+function renderList(){
+  populateFilterCats();
+  const q = document.getElementById('searchBox').value.toLowerCase();
+  const ft = document.getElementById('filterType').value;
+  const fc = document.getElementById('filterCat').value;
+  const rows = state.transactions
+    .filter(t=> (!q || t.description.toLowerCase().includes(q)) && (ft==='all'||t.type===ft) && (fc==='all'||t.category===fc))
+    .sort((a,b)=> b.date.localeCompare(a.date));
+  const tbody = document.querySelector('#listTable tbody');
+  tbody.innerHTML='';
+  document.getElementById('listEmpty').style.display = rows.length ? 'none':'block';
+  rows.forEach(t=>{
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td style="font-family:'JetBrains Mono',monospace;">${t.date}</td>
+      <td>${escapeHtml(t.description)}</td>
+      <td style="font-family:'JetBrains Mono',monospace;color:${t.type==='income'?'var(--green)':'var(--red)'};">${t.type==='income'?'+':'-'}${fmt(t.amount)}</td>
+      <td><span class="kw-tag" style="background:${t.category?catColor(t.category)+'22':'#eee'};">${escapeHtml(t.category)}</span></td>
+      <td>${t.image?'<span title="Фото прикреплено">🧾</span>':'—'}</td>
+      <td><button class="row-del" data-id="${t.id}">✕</button></td>
+    `;
+    tbody.appendChild(tr);
+  });
+  tbody.querySelectorAll('.row-del').forEach(b=>{
+    b.addEventListener('click', async ()=>{
+      state.transactions = state.transactions.filter(t=>t.id!==b.dataset.id);
+      await saveState();
+      renderList(); renderDash();
+    });
+  });
+}
+document.getElementById('searchBox').addEventListener('input', renderList);
+document.getElementById('filterType').addEventListener('change', renderList);
+document.getElementById('filterCat').addEventListener('change', renderList);
+
+/* ============ CATEGORIES TAB ============ */
+function renderCats(){
+  const list = document.getElementById('catList');
+  list.innerHTML='';
+  state.categories.forEach((c,ci)=>{
+    const div = document.createElement('div');
+    div.className='cat-item';
+    div.innerHTML = `
+      <div class="cat-head">
+        <span class="cat-dot" style="background:${c.color}"></span>
+        <span class="cat-name">${escapeHtml(c.name)}</span>
+        <span style="font-size:11px;color:var(--ink-soft);">${c.type==='income'?'доход':'расход'}</span>
+      </div>
+      <div class="kw-tags">${c.keywords.map((k,ki)=>`<span class="kw-tag">${escapeHtml(k)}<button data-ci="${ci}" data-ki="${ki}">✕</button></span>`).join('') || '<span style="font-size:12px;color:var(--ink-soft);">нет ключевых слов</span>'}</div>
+      <div class="add-kw">
+        <input type="text" placeholder="Новое слово (например: kaspi gold)" data-ci="${ci}">
+        <button data-ci="${ci}" class="add-kw-btn">+ слово</button>
+      </div>
+    `;
+    list.appendChild(div);
+  });
+  list.querySelectorAll('.kw-tag button').forEach(b=>{
+    b.addEventListener('click', async ()=>{
+      state.categories[+b.dataset.ci].keywords.splice(+b.dataset.ki,1);
+      await saveState(); renderCats();
+    });
+  });
+  list.querySelectorAll('.add-kw-btn').forEach(b=>{
+    b.addEventListener('click', async ()=>{
+      const input = list.querySelector(`.add-kw input[data-ci="${b.dataset.ci}"]`);
+      const val = input.value.trim();
+      if(val){ state.categories[+b.dataset.ci].keywords.push(val); await saveState(); renderCats(); }
+    });
+  });
+}
+document.getElementById('addCatBtn').addEventListener('click', async ()=>{
+  const inp = document.getElementById('newCatName');
+  const name = inp.value.trim();
+  if(!name) return;
+  const palette = ['#1f4b3f','#9c2b1f','#4a6670','#7a6a3c','#8e5572','#556b2f','#a9803f','#5b5346','#6b4226'];
+  const color = palette[state.categories.length % palette.length];
+  state.categories.push({name, color, type:'expense', keywords:[]});
+  inp.value='';
+  await saveState(); renderCats();
+});
+
+/* ============ DASHBOARD ============ */
+let currentPeriod = 'day';
+let refDate = new Date();
+
+document.querySelectorAll('#periodSwitch button').forEach(b=>{
+  b.addEventListener('click', ()=>{
+    document.querySelectorAll('#periodSwitch button').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');
+    currentPeriod = b.dataset.p;
+    renderDash();
+  });
+});
+document.getElementById('prevPeriod').addEventListener('click', ()=>{ shiftPeriod(-1); });
+document.getElementById('nextPeriod').addEventListener('click', ()=>{ shiftPeriod(1); });
+document.getElementById('todayBtn').addEventListener('click', ()=>{ refDate = new Date(); renderDash(); });
+
+function shiftPeriod(dir){
+  const d = new Date(refDate);
+  if(currentPeriod==='day') d.setDate(d.getDate()+dir);
+  else if(currentPeriod==='week') d.setDate(d.getDate()+dir*7);
+  else d.setFullYear(d.getFullYear()+dir);
+  refDate = d;
+  renderDash();
+}
+function isoDate(d){ return d.toISOString().slice(0,10); }
+function mondayOf(d){
+  const x = new Date(d);
+  const day = (x.getDay()+6)%7;
+  x.setDate(x.getDate()-day);
+  x.setHours(0,0,0,0);
+  return x;
+}
+const MONTHS = ['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
+const MONTHS_SHORT = ['Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек'];
+const WEEKDAYS = ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
+
+function getPeriodInfo(){
+  if(currentPeriod==='day'){
+    const dayStr = isoDate(refDate);
+    const label = refDate.getDate()+' '+MONTHS[refDate.getMonth()]+' '+refDate.getFullYear();
+    // buckets: last 7 days ending today for trend
+    const buckets=[];
+    for(let i=6;i>=0;i--){
+      const d=new Date(refDate); d.setDate(d.getDate()-i);
+      buckets.push({key:isoDate(d), label: d.getDate()+'.'+String(d.getMonth()+1).padStart(2,'0')});
+    }
+    return {label, filterFn: t=>t.date===dayStr, buckets, chartTitle:'Последние 7 дней'};
+  }
+  if(currentPeriod==='week'){
+    const mon = mondayOf(refDate);
+    const sun = new Date(mon); sun.setDate(mon.getDate()+6);
+    const label = mon.getDate()+' '+MONTHS[mon.getMonth()]+' – '+sun.getDate()+' '+MONTHS[sun.getMonth()]+' '+sun.getFullYear();
+    const buckets=[];
+    for(let i=0;i<7;i++){
+      const d=new Date(mon); d.setDate(mon.getDate()+i);
+      buckets.push({key:isoDate(d), label:WEEKDAYS[i]});
+    }
+    const startStr=isoDate(mon), endStr=isoDate(sun);
+    return {label, filterFn: t=> t.date>=startStr && t.date<=endStr, buckets, chartTitle:'Движение по дням недели'};
+  }
+  // year
+  const y = refDate.getFullYear();
+  const buckets=[];
+  for(let m=0;m<12;m++) buckets.push({key:y+'-'+String(m+1).padStart(2,'0'), label:MONTHS_SHORT[m]});
+  return {label:String(y), filterFn: t=> t.date.slice(0,4)===String(y), buckets, chartTitle:'Движение по месяцам'};
+}
+
+function bucketKeyFor(dateStr){
+  if(currentPeriod==='year') return dateStr.slice(0,7);
+  return dateStr;
+}
+
+function renderDash(){
+  const info = getPeriodInfo();
+  document.getElementById('periodLabel').textContent = info.label;
+  document.getElementById('chartTitle').textContent = info.chartTitle;
+
+  const periodTx = state.transactions.filter(info.filterFn);
+  const income = periodTx.filter(t=>t.type==='income').reduce((s,t)=>s+t.amount,0);
+  const expense = periodTx.filter(t=>t.type==='expense').reduce((s,t)=>s+t.amount,0);
+  document.getElementById('sumIncome').textContent = fmt(income);
+  document.getElementById('sumExpense').textContent = fmt(expense);
+  document.getElementById('sumBalance').textContent = (income-expense>=0?'+':'')+fmt(income-expense);
+
+  const totalIncome = state.transactions.filter(t=>t.type==='income').reduce((s,t)=>s+t.amount,0);
+  const totalExpense = state.transactions.filter(t=>t.type==='expense').reduce((s,t)=>s+t.amount,0);
+  document.getElementById('totalBalance').textContent = fmt(totalIncome-totalExpense);
+
+  // bar chart
+  const bucketMap = {};
+  info.buckets.forEach(b=> bucketMap[b.key]={income:0, expense:0});
+  const source = currentPeriod==='day' ? state.transactions.filter(t=> bucketMap[bucketKeyFor(t.date)] !== undefined) : periodTx;
+  source.forEach(t=>{
+    const k = bucketKeyFor(t.date);
+    if(bucketMap[k]) bucketMap[k][t.type]+=t.amount;
+  });
+  drawBarChart(info.buckets.map(b=>({label:b.label, ...bucketMap[b.key]})));
+
+  // donut chart (expenses by category, for period)
+  const byCat = {};
+  periodTx.filter(t=>t.type==='expense').forEach(t=>{
+    byCat[t.category] = (byCat[t.category]||0) + t.amount;
+  });
+  drawDonut(byCat);
+
+  // tape
+  renderTape(periodTx.slice().sort((a,b)=>b.date.localeCompare(a.date)));
+}
+
+function drawBarChart(data){
+  const w=460, h=210, padB=26, padT=10, padL=6, barGap=8;
+  const max = Math.max(1, ...data.map(d=>Math.max(d.income,d.expense)));
+  const barW = (w - padL*2) / data.length;
+  let svg = `<svg viewBox="0 0 ${w} ${h}" style="width:100%;height:${h}px;">`;
+  data.forEach((d,i)=>{
+    const x = padL + i*barW;
+    const ih = (h-padB-padT) * (d.income/max);
+    const eh = (h-padB-padT) * (d.expense/max);
+    const bw = (barW - barGap)/2;
+    svg += `<rect x="${x}" y="${h-padB-ih}" width="${bw}" height="${ih}" fill="#1f4b3f" rx="1"/>`;
+    svg += `<rect x="${x+bw+2}" y="${h-padB-eh}" width="${bw}" height="${eh}" fill="#9c2b1f" rx="1"/>`;
+    svg += `<text x="${x+barW/2-4}" y="${h-8}" class="bar-tooltip-label" text-anchor="middle">${d.label}</text>`;
+  });
+  svg += '</svg>';
+  document.getElementById('barChart').innerHTML = svg + `<div class="legend">
+    <div class="legend-item"><span class="legend-dot" style="background:#1f4b3f;"></span>Доход</div>
+    <div class="legend-item"><span class="legend-dot" style="background:#9c2b1f;"></span>Расход</div>
+  </div>`;
+}
+
+function drawDonut(byCat){
+  const entries = Object.entries(byCat).sort((a,b)=>b[1]-a[1]);
+  const total = entries.reduce((s,[,v])=>s+v,0);
+  const legendEl = document.getElementById('donutLegend');
+  if(!entries.length || total===0){
+    document.getElementById('donutChart').innerHTML = '<div class="empty-state" style="padding:30px 10px;"><div class="big">◎</div>расходов в периоде нет</div>';
+    legendEl.innerHTML='';
+    return;
+  }
+  const R=70, r=42, cx=90, cy=90;
+  let angle=-90;
+  let paths='';
+  entries.forEach(([name,val])=>{
+    const frac = val/total;
+    const a0 = angle;
+    const a1 = angle + frac*360;
+    paths += arcPath(cx,cy,R,a0,a1, catColor(name));
+    angle = a1;
+  });
+  const svg = `<svg viewBox="0 0 180 180" style="width:180px;height:180px;display:block;margin:0 auto;">
+    ${paths}
+    <circle cx="${cx}" cy="${cy}" r="${r}" fill="var(--card)"/>
+    <text x="${cx}" y="${cy-2}" text-anchor="middle" font-size="11" fill="var(--ink-soft)">Всего</text>
+    <text x="${cx}" y="${cy+13}" text-anchor="middle" font-size="12" font-weight="700" fill="var(--ink)">${Math.round(total).toLocaleString('ru-RU')}</text>
+  </svg>`;
+  document.getElementById('donutChart').innerHTML = svg;
+  legendEl.innerHTML = entries.map(([name,val])=>`<div class="legend-item"><span class="legend-dot" style="background:${catColor(name)};"></span>${escapeHtml(name)} — ${Math.round(val/total*100)}%</div>`).join('');
+}
+function arcPath(cx,cy,R,a0,a1,color){
+  const toRad = a => a*Math.PI/180;
+  const x0 = cx + R*Math.cos(toRad(a0)), y0 = cy + R*Math.sin(toRad(a0));
+  const x1 = cx + R*Math.cos(toRad(a1)), y1 = cy + R*Math.sin(toRad(a1));
+  const large = (a1-a0) > 180 ? 1 : 0;
+  return `<path d="M${cx},${cy} L${x0},${y0} A${R},${R} 0 ${large} 1 ${x1},${y1} Z" fill="${color}"/>`;
+}
+
+function renderTape(rows){
+  const el = document.getElementById('tape');
+  if(!rows.length){ el.innerHTML = '<div class="tape-empty">В этом периоде операций нет</div>'; return; }
+  el.innerHTML = rows.map(t=>`
+    <div class="tape-row">
+      <span class="d">${t.date}</span>
+      <span class="desc">${escapeHtml(t.description)}</span>
+      <span class="a ${t.type}">${t.type==='income'?'+':'-'}${fmt(t.amount)}</span>
+    </div>
+  `).join('');
+}
+
+/* ============ GOOGLE SHEETS SYNC ============ */
+const SYNC_KEY = 'ledger_sync_config_v1';
+
+async function loadSyncConfig(){
+  try{
+    if(hasCloudStorage){
+      const r = await window.storage.get('sync_config', false);
+      if(r && r.value) return JSON.parse(r.value);
+    } else {
+      const raw = localStorage.getItem(SYNC_KEY);
+      if(raw) return JSON.parse(raw);
+    }
+  }catch(e){}
+  return {url:'', password:''};
+}
+async function saveSyncConfig(cfg){
+  try{
+    if(hasCloudStorage){ await window.storage.set('sync_config', JSON.stringify(cfg), false); }
+    else { localStorage.setItem(SYNC_KEY, JSON.stringify(cfg)); }
+  }catch(e){ console.error(e); }
+}
+
+function syncStatus(msg){ document.getElementById('syncStatus').textContent = msg; }
+
+document.getElementById('syncSaveBtn').addEventListener('click', async ()=>{
+  const url = document.getElementById('syncUrl').value.trim();
+  const password = document.getElementById('syncPass').value;
+  await saveSyncConfig({url, password});
+  syncStatus('Настройки сохранены.');
+  toast('Настройки синхронизации сохранены');
+});
+
+document.getElementById('syncPushBtn').addEventListener('click', async ()=>{
+  const cfg = await loadSyncConfig();
+  if(!cfg.url){ syncStatus('Сначала укажи URL и пароль, затем «Сохранить настройки».'); return; }
+  if(!confirm('Это полностью перезапишет данные в Google Таблице текущими данными приложения. Продолжить?')) return;
+  syncStatus('Отправляю…');
+  try{
+    const res = await fetch(cfg.url, {
+      method:'POST',
+      headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body: JSON.stringify({ password: cfg.password, action:'push', transactions: state.transactions })
+    });
+    const data = await res.json();
+    if(data.error){ syncStatus('Ошибка: '+data.error); return; }
+    syncStatus('Отправлено операций: '+data.count+' · '+new Date().toLocaleTimeString('ru-RU'));
+    toast('Таблица обновлена');
+  }catch(err){
+    syncStatus('Не удалось подключиться. Проверь URL и настройки доступа скрипта (Anyone).');
+    console.error(err);
+  }
+});
+
+document.getElementById('syncPullBtn').addEventListener('click', async ()=>{
+  const cfg = await loadSyncConfig();
+  if(!cfg.url){ syncStatus('Сначала укажи URL и пароль, затем «Сохранить настройки».'); return; }
+  if(!confirm('Это заменит операции в приложении данными из Google Таблицы. Продолжить?')) return;
+  syncStatus('Загружаю…');
+  try{
+    const res = await fetch(cfg.url, {
+      method:'POST',
+      headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body: JSON.stringify({ password: cfg.password, action:'pull' })
+    });
+    const data = await res.json();
+    if(data.error){ syncStatus('Ошибка: '+data.error); return; }
+    state.transactions = data.transactions.map(t=>({...t, amount:Number(t.amount)}));
+    await saveState();
+    syncStatus('Загружено операций: '+state.transactions.length+' · '+new Date().toLocaleTimeString('ru-RU'));
+    toast('Данные обновлены из таблицы');
+    renderDash(); renderList();
+  }catch(err){
+    syncStatus('Не удалось подключиться. Проверь URL и настройки доступа скрипта (Anyone).');
+    console.error(err);
+  }
+});
+
+async function initSyncFields(){
+  const cfg = await loadSyncConfig();
+  document.getElementById('syncUrl').value = cfg.url || '';
+  document.getElementById('syncPass').value = cfg.password || '';
+}
+
+/* ============ PWA SERVICE WORKER ============ */
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>{
+    navigator.serviceWorker.register('sw.js').catch(err=>console.warn('SW registration failed', err));
+  });
+}
+
+/* ============ INIT ============ */
+(async function init(){
+  await loadState();
+  await initSyncFields();
+  renderDash();
+  renderList();
+  renderCats();
+})();
+</script>
+</body>
+</html>
